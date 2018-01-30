@@ -178,6 +178,12 @@ int get_listener_socket(char *port)
 
 /**
  * Send an HTTP response
+ *
+ * header:       "HTTP/1.1 404 NOT FOUND" or "HTTP/1.1 200 OK", etc.
+ * content_type: "text/plain", etc.
+ * body:         the data to send.
+ * 
+ * Return the value from the send() function.
  */
 int send_response(int fd, char *header, char *content_type, char *body)
 {
