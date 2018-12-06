@@ -58,13 +58,26 @@ int send_response(int fd, char *header, char *content_type, void *body, int cont
     ///////////////////
     // IMPLEMENT ME! //
     ///////////////////
-
+    // found this on stack overflow https://stackoverflow.com/questions/1442116/how-to-get-the-date-and-time-values-in-a-c-program
+    time_t t = time(NULL);
+    struct tm *tm = localtime(&t);
+    int response_length = sprintf(response, 
+        "%s\n"
+        "Date: %s"
+        "Connection: close\n"
+        "Content-Length: %d\n"
+        "Content-Type: %s\n"
+        "\n", 
+        header, asctime(tm), content_length, content_type );
     // Send it all!
-    int rv = send(fd, response, response_length, 0);
-
+    memcpy(response + response_length, body, content_length);
+    printf("test: %s\n", response);
+    int rv = send(fd, response, response_length + content_length, 0);
+    
     if (rv < 0) {
         perror("send");
     }
+
 
     return rv;
 }
@@ -76,13 +89,20 @@ int send_response(int fd, char *header, char *content_type, void *body, int cont
 void get_d20(int fd)
 {
     // Generate a random number between 1 and 20 inclusive
-    
+    // https://stackoverflow.com/questions/822323/how-to-generate-a-random-int-in-c
+    srand(time(NULL));
+    int r = rand() % 20;
+    printf("rand int: %d\n\n", r);
+    char rToString[8];
+    sprintf(rToString, "%d", r);
+    printf("rand int as string: %s\n", rToString);
+
     ///////////////////
     // IMPLEMENT ME! //
     ///////////////////
 
     // Use send_response() to send it back as text/plain data
-
+    send_response(fd, "HTTP/1.1 200 OK", "text/plain", rToString, 3);
     ///////////////////
     // IMPLEMENT ME! //
     ///////////////////
@@ -122,6 +142,27 @@ void get_file(int fd, struct cache *cache, char *request_path)
     ///////////////////
     // IMPLEMENT ME! //
     ///////////////////
+    char filepath[4096];
+    struct file_data *filedata; 
+    char *mime_type;
+    snprintf(filepath, sizeof filepath, "%s%s", SERVER_ROOT, request_path);
+    struct cache_entry *cEntry = cache_get(cache, filepath);
+
+    if(cEntry == NULL){
+        filedata = file_load(filepath);
+        if(filedata == NULL){
+            resp_404(fd);
+            return;
+        }
+        mime_type = mime_type_get(filepath);
+        send_response(fd, "HTTP/1.1 200 OK", mime_type, filedata->data, filedata->size);
+        cache_put(cache, filepath, mime_type, filedata->data, filedata->size);
+        file_free(filedata);
+    }else{
+        send_response(fd, "HTTP/1.1 200 OK", cEntry->content_type, cEntry->content, cEntry->content_length);
+    }
+
+
 }
 
 /**
@@ -153,15 +194,28 @@ void handle_http_request(int fd, struct cache *cache)
         return;
     }
 
-
+    // printf("bytes_recvd: %d\n", bytes_recvd);
+    // printf("what is request: %s\n", request);
     ///////////////////
     // IMPLEMENT ME! //
     ///////////////////
+    char request_type[8]; // GET or POST
+    char request_path[1024]; // /info etc.
+    char request_protocol[128]; // HTTP/1.1
 
+    sscanf(request, "%s %s %s", request_type, request_path, request_protocol);
+ 
+    // printf("what did sscanf do: %s %s %s\n", request_type, request_path, request_protocol);
     // Read the three components of the first request line
 
     // If GET, handle the get endpoints
-
+    if(strcmp(request_type, "GET") == 0){
+        if(strcmp(request_path, "/d20") == 0){
+            get_d20(fd);
+        } else {
+            get_file(fd, cache, request_path);
+        }
+    }
     //    Check if it's /d20 and handle that special case
     //    Otherwise serve the requested file by calling get_file()
 
@@ -193,7 +247,7 @@ int main(void)
     // This is the main loop that accepts incoming connections and
     // forks a handler process to take care of it. The main parent
     // process then goes back to waiting for new connections.
-    
+
     while(1) {
         socklen_t sin_size = sizeof their_addr;
 
@@ -204,7 +258,7 @@ int main(void)
             perror("accept");
             continue;
         }
-
+        // resp_404(newfd);
         // Print out a message that we got the connection
         inet_ntop(their_addr.ss_family,
             get_in_addr((struct sockaddr *)&their_addr),

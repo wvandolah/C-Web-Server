@@ -12,6 +12,12 @@ struct cache_entry *alloc_entry(char *path, char *content_type, void *content, i
     ///////////////////
     // IMPLEMENT ME! //
     ///////////////////
+    struct cache_entry *cEntry = malloc(sizeof(struct cache_entry));
+    cEntry->path = strdup(path);
+    cEntry->content_type = strdup(content_type);
+    cEntry->content = strdup(content);
+    cEntry->content_length = content_length;
+    return cEntry;
 }
 
 /**
@@ -22,6 +28,10 @@ void free_entry(struct cache_entry *entry)
     ///////////////////
     // IMPLEMENT ME! //
     ///////////////////
+    free(entry->path);
+    free(entry->content_type);
+    free(entry->content);
+    free(entry);
 }
 
 /**
@@ -94,6 +104,14 @@ struct cache *cache_create(int max_size, int hashsize)
     ///////////////////
     // IMPLEMENT ME! //
     ///////////////////
+    struct cache *nCache = malloc(sizeof(struct cache));
+    nCache->index = hashtable_create(hashsize, NULL);
+    nCache->head = NULL;
+    nCache->tail = NULL;
+    nCache->max_size = max_size;
+    nCache->cur_size = 0;
+
+    return nCache;
 }
 
 void cache_free(struct cache *cache)
@@ -125,6 +143,20 @@ void cache_put(struct cache *cache, char *path, char *content_type, void *conten
     ///////////////////
     // IMPLEMENT ME! //
     ///////////////////
+    struct cache_entry *cEntry = alloc_entry(path, content_type, content, content_length);
+    dllist_insert_head(cache, cEntry);
+    // hashtable_put(ht, "some data", &data1);
+    hashtable_put(cache->index, path, cEntry);
+    cache->cur_size += 1;
+    if(cache->cur_size > cache->max_size){
+        struct cache_entry *oldtail = dllist_remove_tail(cache);
+        hashtable_delete(cache->index, oldtail->path);
+        free_entry(oldtail);
+        // dllist_remove_tail is cache->cur_size-- 
+        // i don't think i need to do anything else
+
+    }
+
 }
 
 /**
@@ -135,4 +167,10 @@ struct cache_entry *cache_get(struct cache *cache, char *path)
     ///////////////////
     // IMPLEMENT ME! //
     ///////////////////
+    struct cache_entry *cEntry = hashtable_get(cache->index, path);
+    if(cEntry == NULL){
+        return NULL;
+    }
+    dllist_move_to_head(cache, cEntry);
+    return cEntry;
 }
