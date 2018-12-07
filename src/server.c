@@ -71,7 +71,7 @@ int send_response(int fd, char *header, char *content_type, void *body, int cont
         header, asctime(tm), content_length, content_type );
     // Send it all!
     memcpy(response + response_length, body, content_length);
-    printf("test: %s\n", response);
+    // printf("test: %s\n", response);
     int rv = send(fd, response, response_length + content_length, 0);
     
     if (rv < 0) {
@@ -149,6 +149,7 @@ void get_file(int fd, struct cache *cache, char *request_path)
     struct cache_entry *cEntry = cache_get(cache, filepath);
 
     if(cEntry == NULL){
+        printf("Not in cache\n");
         filedata = file_load(filepath);
         if(filedata == NULL){
             resp_404(fd);
@@ -159,6 +160,7 @@ void get_file(int fd, struct cache *cache, char *request_path)
         cache_put(cache, filepath, mime_type, filedata->data, filedata->size);
         file_free(filedata);
     }else{
+        printf("In cache\n");
         send_response(fd, "HTTP/1.1 200 OK", cEntry->content_type, cEntry->content, cEntry->content_length);
     }
 
@@ -171,12 +173,12 @@ void get_file(int fd, struct cache *cache, char *request_path)
  * "Newlines" in HTTP can be \r\n (carriage return followed by newline) or \n
  * (newline) or \r (carriage return).
  */
-char *find_start_of_body(char *header)
-{
-    ///////////////////
-    // IMPLEMENT ME! // (Stretch)
-    ///////////////////
-}
+// char *find_start_of_body(char *header)
+// {
+//     ///////////////////
+//     // IMPLEMENT ME! // (Stretch)
+//     ///////////////////
+// }
 
 /**
  * Handle HTTP request and send response
